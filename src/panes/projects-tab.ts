@@ -72,6 +72,29 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
                 plugin.app.workspace.openLinkText(proj.path + "/README.md", "", false);
             });
 
+            // 添加任务 — 追加到项目 README 的「任务」区域
+            const addTaskBtn = row.createEl("button", { text: "+任务", cls: "wd-btn-sm wd-btn-ghost" });
+            addTaskBtn.addEventListener("click", async () => {
+                const taskInput = row.createEl("input", {
+                    type: "text",
+                    placeholder: "输入后回车…",
+                    cls: "wd-digest-input",
+                    attr: { style: "flex:1;min-width:0;padding:4px 6px;font-size:0.75rem;border-bottom:1px solid var(--wd-border)" },
+                });
+                taskInput.addEventListener("keydown", async (e) => {
+                    if (e.key !== "Enter") return;
+                    const text = taskInput.value.trim();
+                    if (!text) { taskInput.remove(); return; }
+                    const readme = vault.getAbstractFileByPath(proj.path + "/README.md");
+                    if (readme) {
+                        await appendToProjectSection(vault, readme as TFile, "任务", `- [ ] ${text}`);
+                    }
+                    row.removeChild(taskInput);
+                    showToast(container, `已添加任务到「${proj.name}」`);
+                });
+                taskInput.focus();
+            });
+
             // 归档按钮
             const archiveBtn = row.createEl("button", { text: "归档", cls: "wd-btn-sm wd-btn-ghost" });
             archiveBtn.addEventListener("click", async () => {
@@ -171,6 +194,28 @@ async function moveProject(vault: import("obsidian").Vault, fromPath: string, to
     try {
         await adapter.rmdir(fromPath);
     } catch { /* ignore */ }
+}
+
+async function appendToProjectSection(vault: import("obsidian").Vault, file: TFile, sectionName: string, content: string) {
+    const text = await vault.read(file);
+    const lines = text.split("\n");
+    let sectionIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === `## ${sectionName}`) { sectionIdx = i; break; }
+    }
+    if (sectionIdx === -1) {
+        await vault.append(file, `\n## ${sectionName}\n\n${content}\n`);
+        return;
+    }
+    let nextIdx = lines.length;
+    for (let i = sectionIdx + 1; i < lines.length; i++) {
+        if (lines[i].match(/^## /)) { nextIdx = i; break; }
+    }
+    let insertIdx = nextIdx - 1;
+    while (insertIdx > sectionIdx && lines[insertIdx].trim() === "") insertIdx--;
+    insertIdx++;
+    lines.splice(insertIdx, 0, content);
+    await vault.modify(file, lines.join("\n"));
 }
 
 function showToast(container: HTMLElement, msg: string, kind: "ok" | "err" = "ok") {
