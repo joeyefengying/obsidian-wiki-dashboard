@@ -1,16 +1,25 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type WikiDashboardPlugin from "../main";
-import { renderStatsHero } from "./panes/stats-pane";
-import { renderDigestPane } from "./panes/digest-pane";
-import { renderActivityPane } from "./panes/activity-pane";
-import { renderShortcutsPane } from "./panes/shortcuts-pane";
-import { renderTasksPane } from "./panes/tasks-pane";
+import { renderOverviewTab } from "./panes/overview-tab";
+import { renderTasksTab } from "./panes/tasks-tab";
+import { renderCaptureTab } from "./panes/capture-tab";
 
 export const VIEW_TYPE_WIKI_DASHBOARD = "wiki-dashboard-view";
+
+type TabId = "overview" | "tasks" | "capture";
+
+const TABS: { id: TabId; label: string; icon: string }[] = [
+    { id: "overview", label: "概览", icon: "grid" },
+    { id: "tasks", label: "任务", icon: "check" },
+    { id: "capture", label: "速记", icon: "pen" },
+];
 
 export class WikiDashboardView extends ItemView {
     plugin: WikiDashboardPlugin;
     private refreshTimer: number | null = null;
+    private activeTab: TabId = "overview";
+    private contentEl!: HTMLElement;
+    private navEl!: HTMLElement;
 
     constructor(leaf: WorkspaceLeaf, plugin: WikiDashboardPlugin) {
         super(leaf);
@@ -22,15 +31,14 @@ export class WikiDashboardView extends ItemView {
     getIcon(): string { return "wiki-dashboard"; }
 
     async onOpen() {
-        const contentEl = this.containerEl.children[1] as HTMLElement;
-        contentEl.empty();
-        contentEl.classList.add("wd-root");
-        await this.build(contentEl);
+        this.contentEl = this.containerEl.children[1] as HTMLElement;
+        this.contentEl.empty();
+        this.contentEl.classList.add("wd-root");
+        await this.build();
 
-        // 每 60 秒刷新（全屏视图刷新太快会分散注意力）
         this.refreshTimer = window.setInterval(() => {
-            contentEl.empty();
-            this.build(contentEl);
+            this.contentEl.empty();
+            this.build();
         }, 60_000);
     }
 
@@ -41,15 +49,17 @@ export class WikiDashboardView extends ItemView {
         }
     }
 
-    // ── 构建全屏仪表盘 ──────────────────────────────────
+    // ── 构建主框架 ──────────────────────────────
 
-    async build(root: HTMLElement) {
+    async build() {
+        const root = this.contentEl;
+
+        // ── HEADER ──
         const now = new Date();
         const dateStr = now.toLocaleDateString("zh-CN", {
             year: "numeric", month: "long", day: "numeric", weekday: "long",
         });
 
-        // ── HEADER ──
         const header = root.createDiv({ cls: "wd-header" });
         const headerLeft = header.createDiv({ cls: "wd-header-left" });
         headerLeft.createEl("h1", { text: "仪表盘", cls: "wd-title" });
@@ -58,35 +68,58 @@ export class WikiDashboardView extends ItemView {
         const headerRight = header.createDiv({ cls: "wd-header-right" });
         const refreshBtn = headerRight.createEl("button", { cls: "wd-btn-icon", attr: { "aria-label": "刷新" } });
         refreshBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`;
-        refreshBtn.addEventListener("click", () => { root.empty(); this.build(root); });
+        refreshBtn.addEventListener("click", () => { root.empty(); this.build(); });
 
         const closeBtn = headerRight.createEl("button", { cls: "wd-btn-icon", attr: { "aria-label": "关闭" } });
         closeBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
         closeBtn.addEventListener("click", () => { this.leaf.detach(); });
 
-        // ── HERO STATS ──
-        const hero = root.createDiv({ cls: "wd-hero" });
-        await renderStatsHero(hero, this.plugin);
+        // ── TAB 导航 ──
+        this.navEl = root.createDiv({ cls: "wd-nav" });
+        for (const tab of TABS) {
+            const btn = this.navEl.createEl("button", {
+                text: tab.label,
+                cls: `wd-nav-btn${tab.id === this.activeTab ? " is-active" : ""}`,
+            });
+            btn.addEventListener("click", () => this.switchTab(tab.id));
+        }
 
-        // ── 分隔线 ──
-        root.createDiv({ cls: "wd-divider" });
-
-        // ── 两栏主体 ──
-        const body = root.createDiv({ cls: "wd-body" });
-        const colMain = body.createDiv({ cls: "wd-col-main" });
-        const colSide = body.createDiv({ cls: "wd-col-side" });
-
-        // 主栏：消化 + 最近动态
-        await renderDigestPane(colMain, this.plugin);
-        await renderActivityPane(colMain, this.plugin);
-
-        // 侧栏：快捷操作 + 待办
-        await renderShortcutsPane(colSide, this.plugin);
-        await renderTasksPane(colSide, this.plugin);
+        // ── 内容区 ──
+        const tabBody = root.createDiv({ cls: "wd-tab-body" });
+        await this.renderTab(tabBody, this.activeTab);
 
         // ── FOOTER ──
         const footer = root.createDiv({ cls: "wd-footer" });
         footer.createSpan({ text: "Wiki Dashboard", cls: "wd-footer-brand" });
-        footer.createSpan({ text: "v1.1", cls: "wd-footer-version" });
+        footer.createSpan({ text: "v1.2", cls: "wd-footer-version" });
+    }
+
+    // ── 切换 Tab ────────────────────────────────
+
+    async switchTab(id: TabId) {
+        this.activeTab = id;
+        this.contentEl.empty();
+        await this.build();
+    }
+
+    async renderTab(container: HTMLElement, id: TabId) {
+        switch (id) {
+            case "overview":
+                await renderOverviewTab(container, this.plugin);
+                break;
+            case "tasks":
+                await renderTasksTab(container, this.plugin);
+                break;
+            case "capture":
+                await renderCaptureTab(container, this.plugin);
+                break;
+        }
+    }
+
+    // ── 暴露给子面板的快捷重建 ──────────────────
+
+    rebuildActiveTab() {
+        this.contentEl.empty();
+        this.build();
     }
 }
