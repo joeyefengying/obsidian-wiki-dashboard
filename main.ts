@@ -1,62 +1,34 @@
-import { Plugin, WorkspaceLeaf, addIcon } from "obsidian";
-import { WikiDashboardView, VIEW_TYPE_WIKI_DASHBOARD } from "./src/dashboard-view";
+import { Plugin, addIcon, Notice } from "obsidian";
+import { exec } from "child_process";
 
-const DASHBOARD_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
+const DASHBOARD_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
 
-export default class WikiDashboardPlugin extends Plugin {
+export default class WikiDashboardLauncher extends Plugin {
     async onload() {
         addIcon("wiki-dashboard", DASHBOARD_ICON);
 
-        this.registerView(
-            VIEW_TYPE_WIKI_DASHBOARD,
-            (leaf: WorkspaceLeaf) => new WikiDashboardView(leaf, this)
-        );
+        this.addRibbonIcon("wiki-dashboard", "Wiki Dashboard", () => this.launch());
 
-        // Ribbon 图标
-        this.addRibbonIcon("wiki-dashboard", "Wiki Dashboard", () => {
-            this.activateView();
-        });
-
-        // 命令面板
         this.addCommand({
             id: "open-wiki-dashboard",
-            name: "打开知识库仪表盘",
-            callback: () => this.activateView(),
-        });
-
-        // 启动时恢复
-        this.app.workspace.onLayoutReady(() => {
-            this.restoreView();
+            name: "打开 Wiki Dashboard",
+            callback: () => this.launch(),
         });
     }
 
-    async onunload() {
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_WIKI_DASHBOARD);
-    }
-
-    async activateView() {
-        const { workspace } = this.app;
-
-        // 优先复用已有 leaf
-        const existing = workspace.getLeavesOfType(VIEW_TYPE_WIKI_DASHBOARD);
-        if (existing.length > 0) {
-            workspace.revealLeaf(existing[0]);
-            return;
-        }
-
-        // 在主区域打开新 tab（全屏体验）
-        const leaf = workspace.getLeaf("tab");
-        await leaf.setViewState({
-            type: VIEW_TYPE_WIKI_DASHBOARD,
-            active: true,
+    launch() {
+        // 尝试启动 Electron 应用
+        const appPath = "E:/project/wiki-dashboard-app";
+        exec(`start "" "${appPath}"`, { shell: true }, (err) => {
+            if (err) {
+                // Electron 应用未构建，提示用户手动 npm run dev
+                new Notice(
+                    "Wiki Dashboard 应用未启动。请在终端运行：\ncd E:/project/wiki-dashboard-app && npm run dev",
+                    8000
+                );
+            }
         });
-        workspace.revealLeaf(leaf);
-    }
-
-    async restoreView() {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_WIKI_DASHBOARD);
-        if (leaves.length > 0) return;
-
-        // 启动时不自动抢占主区域，只在用户主动打开时才显示
+        // 同时复制路径到剪贴板，方便手动打开
+        navigator.clipboard.writeText(appPath);
     }
 }
