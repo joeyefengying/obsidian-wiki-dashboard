@@ -2,11 +2,14 @@ import type WikiDashboardPlugin from "../../main";
 import { TFile } from "obsidian";
 import { getDailyPath, ensureDailyFile } from "../utils/vault-utils";
 
+/**
+ * 概览待办面板 — 只显示日报「日常记录」区域的待办，可点击勾选
+ */
 export async function renderTasksPane(container: HTMLElement, plugin: WikiDashboardPlugin) {
     container.empty();
 
     const section = container.createDiv({ cls: "wd-section" });
-    section.createDiv({ text: "今日待办", cls: "wd-section-title" });
+    section.createDiv({ text: "日报待办", cls: "wd-section-title" });
     const body = section.createDiv({ cls: "wd-section-body" });
 
     const dailyPath = getDailyPath();
@@ -18,16 +21,12 @@ export async function renderTasksPane(container: HTMLElement, plugin: WikiDashbo
 
     try {
         const content = await plugin.app.vault.read(dailyFile);
-        const lines = content.split("\n");
-        const tasks: Array<{ text: string; done: boolean }> = [];
 
-        for (const line of lines) {
-            const m = line.match(/^\s*- \[(.)\] (.+)$/);
-            if (m) tasks.push({ text: m[2].trim(), done: m[1] !== " " });
-        }
+        // 只提取「日常记录」区域的待办（排除习惯打卡等）
+        const tasks = extractTasksFromSection(content, "日常记录");
 
         if (tasks.length === 0) {
-            body.createDiv({ text: "今日暂无待办", cls: "wd-empty" });
+            body.createDiv({ text: "日常记录暂无待办", cls: "wd-empty" });
             return;
         }
 
@@ -44,11 +43,50 @@ export async function renderTasksPane(container: HTMLElement, plugin: WikiDashbo
             const item = list.createDiv({ cls: `wd-task-item${task.done ? " is-done" : ""}` });
             item.createSpan({ text: task.done ? "✓" : "○", cls: "wd-task-check" });
             item.createSpan({ text: task.text, cls: "wd-task-text" });
-            item.addEventListener("click", () => {
-                plugin.app.workspace.openLinkText(dailyPath, "", false);
+
+            // 点击勾选
+            item.addEventListener("click", async () => {
+                if (!(dailyFile instanceof TFile)) return;
+                const current = await plugin.app.vault.read(dailyFile);
+                const toggled = task.done
+                    ? task.raw.replace(/- \[x\]/, "- [ ]")
+                    : task.raw.replace(/- \[ \]/, "- [x]");
+                await plugin.app.vault.modify(dailyFile, current.replace(task.raw, toggled));
+                container.empty();
+                await renderTasksPane(container, plugin);
             });
         }
     } catch {
         body.createDiv({ text: "无法读取日报", cls: "wd-empty" });
     }
+}
+
+/**
+ * 从指定 section 中提取任务（section = ## 标题）
+ */
+function extractTasksFromSection(content: string, sectionName: string): Array<{ text: string; done: boolean; raw: string }> {
+    const lines = content.split("\n");
+
+    // 定位 section
+    let start = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === `## ${sectionName}`) { start = i; break; }
+    }
+    if (start === -1) return [];
+
+    // 找到下一个 ## 标题
+    let end = lines.length;
+    for (let i = start + 1; i < lines.length; i++) {
+        if (lines[i].match(/^## /)) { end = i; break; }
+    }
+
+    // 提取该区域内的任务
+    const tasks: Array<{ text: string; done: boolean; raw: string }> = [];
+    for (let i = start + 1; i < end; i++) {
+        const m = lines[i].match(/^\s*- \[(.)\] (.+)$/);
+        if (m) {
+            tasks.push({ text: m[2].trim(), done: m[1] !== " ", raw: lines[i] });
+        }
+    }
+    return tasks;
 }
