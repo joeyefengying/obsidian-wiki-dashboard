@@ -1,6 +1,6 @@
 import type WikiDashboardPlugin from "../../main";
 import { TFile } from "obsidian";
-import { getDailyPath, ensureDailyFile, appendToDailySection } from "../utils/vault-utils";
+import { getDailyPath, ensureDailyFile, appendToDailySection, getActiveProjects } from "../utils/vault-utils";
 
 /**
  * 任务 Tab — LifeOS 日报集成
@@ -43,6 +43,14 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
         value: todayStr,
     });
 
+    // 项目选择器
+    const projects = getActiveProjects(vault);
+    const projSelect = addRow.createEl("select", { cls: "wd-task-target-select" });
+    projSelect.createEl("option", { text: "关联项目…", value: "" });
+    for (const p of projects) {
+        projSelect.createEl("option", { text: p.name, value: p.path });
+    }
+
     const onAdd = async () => {
         const text = addInput.value.trim();
         if (!text) return;
@@ -54,6 +62,8 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
         if (prio) line += ` ${prio}`;
         const due = dueInput.value;
         if (due) line += ` 📅 ${due}`;
+        const projPath = projSelect.value;
+        if (projPath) line += ` 🗂 [[${projPath}/README|${projPath.split("/").pop()}]]`;
 
         // 确保日报存在
         const file = await ensureDailyFile(vault, dailyPath);

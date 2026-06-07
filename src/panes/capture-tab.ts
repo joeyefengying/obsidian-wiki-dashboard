@@ -1,6 +1,6 @@
 import type WikiDashboardPlugin from "../../main";
 import { TFile } from "obsidian";
-import { getDailyPath, ensureDailyFile, appendToDailySection } from "../utils/vault-utils";
+import { getDailyPath, ensureDailyFile, appendToDailySection, getActiveProjects } from "../utils/vault-utils";
 
 /**
  * 速记 Tab — 快速捕获想法，像真实编辑器一样点击按钮即插入模板
@@ -47,6 +47,13 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
     });
 
     const optionsRow = inputBody.createDiv({ cls: "wd-capture-options" });
+    // 项目选择器
+    const projects = getActiveProjects(vault);
+    const projSelect = optionsRow.createEl("select", { cls: "wd-task-target-select" });
+    projSelect.createEl("option", { text: "关联项目…", value: "" });
+    for (const p of projects) {
+        projSelect.createEl("option", { text: p.name, value: p.path });
+    }
     const tagInput = optionsRow.createEl("input", {
         type: "text",
         placeholder: "标签（可选，逗号分隔）",
@@ -63,6 +70,11 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
         if (tags) {
             const tagStr = tags.split(/[,，]/).map(t => t.trim()).filter(Boolean).map(t => `#${t}`).join(" ");
             content += ` ${tagStr}`;
+        }
+        // 关联项目
+        const projPath = projSelect.value;
+        if (projPath) {
+            content += `\n🗂 [[${projPath}/README|${projPath.split("/").pop()}]]`;
         }
         // 加时间戳
         content = `\n> ${now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}\n${content}`;

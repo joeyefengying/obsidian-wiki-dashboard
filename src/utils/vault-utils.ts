@@ -39,29 +39,50 @@ export function getDailyTemplatePath(): string {
 }
 
 /**
- * 创建日报（从模板），如果模板不存在则创建简单模板
+ * 获取活跃项目列表（PARA 管理/1. 项目/ 下的子目录）
+ */
+export function getActiveProjects(vault: Vault): Array<{ name: string; path: string }> {
+    const dir = vault.getAbstractFileByPath("PARA 管理/1. 项目");
+    if (!dir || !(dir as any).children) return [];
+
+    return ((dir as any).children as Array<any>)
+        .filter((c: any) => c.children !== undefined) // 只取子目录
+        .map((c: any) => ({ name: c.name, path: c.path } as { name: string; path: string }))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+}
+
+/**
+ * 生成项目列表（替换 LifeOS 动态语法）
+ */
+function generateProjectList(vault: Vault): string {
+    const projects = getActiveProjects(vault);
+    if (projects.length === 0) return "";
+    return projects.map((p, i) => `${i + 1}. [[${p.path}/README|${p.name}]]`).join("\n");
+}
+
+/**
+ * 创建日报（从模板 + 自动生成项目列表）
  */
 export async function ensureDailyFile(vault: Vault, path: string): Promise<TFile> {
     const existing = vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return existing;
 
-    // 尝试读取模板
     const templatePath = getDailyTemplatePath();
     const templateFile = vault.getAbstractFileByPath(templatePath);
 
     let content: string;
     if (templateFile instanceof TFile) {
         content = await vault.read(templateFile);
-        // 清理模板中的 LifeOS 动态语法（保留静态内容，移除 <% ... %> 块）
+        // 替换 LifeOS 动态语法为实际项目列表
+        const projList = generateProjectList(vault);
+        content = content.replace(/<%[\s]*LifeOS\.Project\.snapshot\(\)[\s]*%>/, projList);
+        // 清理剩余动态语法
         content = content.replace(/<%[\s\S]*?%>/g, "").trim();
-        // 清理空行
         content = content.replace(/\n{3,}/g, "\n\n");
     } else {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        content = `## 项目列表\n\n## 日常记录\n\n## 习惯打卡\n\n## 今日完成\n`;
+        const projList = generateProjectList(vault);
+        const projSection = projList ? `## 项目列表\n\n${projList}\n\n` : "";
+        content = `${projSection}## 日常记录\n\n## 习惯打卡\n\n## 今日完成\n`;
     }
 
     return await vault.create(path, content);
