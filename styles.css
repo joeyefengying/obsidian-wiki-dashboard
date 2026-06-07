@@ -743,6 +743,48 @@
   --wd-bg-input:   #f0ece5;
 }
 
+/* ═════════════ PROJECTS TAB ═════════════ */
+.wd-project-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-project-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--wd-border-sub);
+  transition: background 0.1s;
+}
+
+.wd-project-row:last-child {
+  border-bottom: none;
+}
+
+.wd-project-row.is-archived {
+  opacity: 0.6;
+}
+
+.wd-project-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wd-project-name {
+  font-size: 0.85rem;
+  color: var(--wd-text);
+  font-weight: 500;
+}
+
+.wd-project-meta {
+  font-size: 0.7rem;
+  color: var(--wd-text-faint);
+}
+
 /* ═════════════ RESPONSIVE ═════════════ */
 @media (max-width: 900px) {
   .wd-root {
