@@ -1,5 +1,10 @@
 import type WikiDashboardPlugin from "../../main";
-import { TFile, TFolder } from "obsidian";
+import { TFile, TFolder, normalizePath } from "obsidian";
+
+// 绕过 vault API 对含空格中文路径的截断 bug，直接用 adapter
+function getAdapter(plugin: WikiDashboardPlugin) {
+    return (plugin.app as any).vault.adapter;
+}
 
 const ACTIVE_DIR = "PARA 管理/1. 项目";
 const ARCHIVE_DIR = "PARA 管理/4. 存档";
@@ -49,7 +54,7 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
                 if (!ok) return;
 
                 try {
-                    await moveProject(vault, proj.path, `${ARCHIVE_DIR}/${proj.name}`);
+                    await moveProject(vault, proj.path, `${ARCHIVE_DIR}/${proj.name}`, plugin);
                     showToast(container, `「${proj.name}」已归档`);
                     // 刷新
                     container.empty();
@@ -114,29 +119,32 @@ async function listProjects(vault: import("obsidian").Vault, dirPath: string, is
     return projects.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function moveProject(vault: import("obsidian").Vault, fromPath: string, toPath: string) {
-    // 先确保目标目录存在（创建占位文件触发目录创建，再删掉）
-    const placeholder = toPath + "/.tmp";
-    try {
-        await vault.create(placeholder, "");
-        const pf = vault.getAbstractFileByPath(placeholder);
-        if (pf) await vault.delete(pf);
-    } catch { /* 目录可能已存在 */ }
+async function moveProject(vault: import("obsidian").Vault, fromPath: string, toPath: string, plugin: WikiDashboardPlugin) {
+    const adapter = getAdapter(plugin);
 
-    // 获取该目录下所有文件
-    const files = vault.getFiles().filter(f => f.path.startsWith(fromPath + "/"));
-
-    // 逐个移动文件
-    for (const file of files) {
-        const relative = file.path.substring(fromPath.length);
-        const newPath = toPath + relative;
-        await vault.rename(file, newPath);
+    // 1. 确保目标目录存在（adapter 底层操作，不受 vault API 中文空格 bug 影响）
+    const exists = await adapter.exists(toPath);
+    if (!exists) {
+        await adapter.mkdir(toPath);
     }
 
-    // 清理可能残留的空目录标记
+    // 2. 获取源目录下所有文件
+    const allFiles = vault.getFiles().filter(f => f.path.startsWith(fromPath + "/"));
+
+    // 3. 逐个移动（adapter.rename 底层重命名）
+    for (const file of allFiles) {
+        const relative = file.path.substring(fromPath.length);
+        const destPath = toPath + relative;
+        try {
+            await adapter.rename(file.path, destPath);
+        } catch (e: any) {
+            throw new Error(`移动 ${file.name} 失败：${e?.message || e}`);
+        }
+    }
+
+    // 4. 删除空的源目录
     try {
-        const tmp = vault.getAbstractFileByPath(fromPath + "/.tmp");
-        if (tmp) await vault.delete(tmp);
+        await adapter.rmdir(fromPath);
     } catch { /* ignore */ }
 }
 
