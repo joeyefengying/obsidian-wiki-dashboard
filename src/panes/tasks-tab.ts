@@ -2,10 +2,12 @@ import type WikiDashboardPlugin from "../../main";
 import { TFile } from "obsidian";
 import { getDailyPath, ensureDailyFile, appendToDailySection, getActiveProjects } from "../utils/vault-utils";
 
+// 记住上次选中的项目（跨刷新保持）
+let lastSelectedProject = "";
+
 /**
  * 任务 Tab — LifeOS 日报集成
- * 日报路径：周期笔记/{year}/Daily/{MM}/{YYYY-MM-DD}.md
- * 任务追加到「日常记录」区域
+ * 顶部显示活跃项目标签，默认选中上次项目，添加任务自动关联
  */
 export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboardPlugin) {
     const vault = plugin.app.vault;
@@ -23,11 +25,52 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
         plugin.app.workspace.openLinkText(dailyPath, "", false);
     });
 
+    // ── 活跃项目标签行 ──
+    const projects = getActiveProjects(vault);
+    let selectedProject = lastSelectedProject;
+    // 如果上次选的项目不存在了，默认选第一个
+    if (selectedProject && !projects.find(p => p.path === selectedProject)) {
+        selectedProject = "";
+    }
+    if (!selectedProject && projects.length > 0) {
+        selectedProject = projects[0].path;
+    }
+
+    const projRow = container.createDiv({ cls: "wd-task-projects" });
+    const projLabel = projRow.createSpan({ text: "关联项目：", cls: "wd-task-projects-label" });
+
+    const allBtn = projRow.createEl("button", {
+        text: "全部",
+        cls: `wd-btn-sm wd-btn-ghost${!selectedProject ? " is-active" : ""}`,
+    });
+    allBtn.addEventListener("click", () => {
+        selectedProject = "";
+        lastSelectedProject = "";
+        container.empty();
+        renderTasksTab(container, plugin);
+    });
+
+    for (const p of projects) {
+        const btn = projRow.createEl("button", {
+            text: p.name,
+            cls: `wd-btn-sm wd-btn-ghost${selectedProject === p.path ? " is-active" : ""}`,
+        });
+        btn.addEventListener("click", () => {
+            selectedProject = p.path;
+            lastSelectedProject = p.path;
+            container.empty();
+            renderTasksTab(container, plugin);
+        });
+    }
+
     // ── 快速添加 ──
-    const addRow = dailyHeader.createDiv({ cls: "wd-task-add-row" });
+    const addRow = container.createDiv({ cls: "wd-task-add-row" });
+    const projectHint = selectedProject
+        ? `添加任务到「${selectedProject.split("/").pop()}」→ 日常记录…`
+        : "添加任务到日常记录…";
     const addInput = addRow.createEl("input", {
         type: "text",
-        placeholder: "添加任务到日常记录…",
+        placeholder: projectHint,
         cls: "wd-digest-input wd-task-add-input",
     });
 
@@ -43,14 +86,6 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
         value: todayStr,
     });
 
-    // 项目选择器
-    const projects = getActiveProjects(vault);
-    const projSelect = addRow.createEl("select", { cls: "wd-task-target-select" });
-    projSelect.createEl("option", { text: "关联项目…", value: "" });
-    for (const p of projects) {
-        projSelect.createEl("option", { text: p.name, value: p.path });
-    }
-
     const onAdd = async () => {
         const text = addInput.value.trim();
         if (!text) return;
@@ -58,20 +93,18 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
         addInput.placeholder = "已添加！继续…";
 
         let line = `- [ ] ${text}`;
-        const prio = prioSelect.value;
-        if (prio) line += ` ${prio}`;
-        const due = dueInput.value;
-        if (due) line += ` 📅 ${due}`;
-        const projPath = projSelect.value;
-        if (projPath) line += ` 🗂 [[${projPath}/README|${projPath.split("/").pop()}]]`;
+        if (prioSelect.value) line += ` ${prioSelect.value}`;
+        if (dueInput.value) line += ` 📅 ${dueInput.value}`;
+        if (selectedProject) {
+            const pname = selectedProject.split("/").pop();
+            line += ` 🗂 [[${selectedProject}/README|${pname}]]`;
+        }
 
-        // 确保日报存在
         const file = await ensureDailyFile(vault, dailyPath);
-        // 追加到「日常记录」区域
         await appendToDailySection(vault, file, "日常记录", line);
 
         setTimeout(() => {
-            addInput.placeholder = "添加任务到日常记录…";
+            addInput.placeholder = projectHint;
             container.empty();
             renderTasksTab(container, plugin);
         }, 400);
@@ -85,9 +118,7 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
     const todayBody = todaySection.createDiv({ cls: "wd-section-body" });
 
     let dailyFile = vault.getAbstractFileByPath(dailyPath);
-    if (!(dailyFile instanceof TFile)) {
-        dailyFile = await ensureDailyFile(vault, dailyPath);
-    }
+    if (!(dailyFile instanceof TFile)) dailyFile = await ensureDailyFile(vault, dailyPath);
 
     const tasks = await extractAllTasks(vault, dailyFile);
 

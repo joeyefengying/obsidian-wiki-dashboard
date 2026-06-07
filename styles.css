@@ -549,6 +549,20 @@
   margin-bottom: 12px;
 }
 
+.wd-task-projects {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.wd-task-projects-label {
+  font-size: 0.72rem;
+  color: var(--wd-text-faint);
+  margin-right: 2px;
+}
+
 .wd-task-add-row {
   display: flex;
   align-items: center;
