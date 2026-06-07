@@ -542,6 +542,13 @@
   margin-bottom: 24px;
 }
 
+.wd-task-header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .wd-task-add-row {
   display: flex;
   align-items: center;
@@ -550,6 +557,37 @@
 
 .wd-task-add-input {
   flex: 1;
+}
+
+.wd-task-due-input {
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  border: 1px solid var(--wd-border);
+  background: var(--wd-bg);
+  color: var(--wd-text-dim);
+  outline: none;
+  width: 130px;
+  color-scheme: dark;
+}
+
+.wd-task-due-input:focus {
+  border-color: var(--wd-accent);
+}
+
+.wd-task-content {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wd-task-meta {
+  font-size: 0.65rem;
+  color: var(--wd-text-faint);
+  white-space: nowrap;
 }
 
 .wd-task-target-select {
