@@ -4,16 +4,18 @@ import { renderOverviewTab } from "./panes/overview-tab";
 import { renderTasksTab } from "./panes/tasks-tab";
 import { renderCaptureTab } from "./panes/capture-tab";
 import { renderProjectsTab } from "./panes/projects-tab";
+import { renderCapabilitiesTab } from "./panes/capabilities-tab";
 
 export const VIEW_TYPE_WIKI_DASHBOARD = "wiki-dashboard-view";
 
-type TabId = "overview" | "tasks" | "capture" | "projects";
+type TabId = "overview" | "tasks" | "capture" | "projects" | "capabilities";
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
     { id: "overview", label: "概览", icon: "grid" },
     { id: "tasks", label: "任务", icon: "check" },
     { id: "capture", label: "速记", icon: "pen" },
     { id: "projects", label: "项目", icon: "folder" },
+    { id: "capabilities", label: "能力", icon: "list" },
 ];
 
 export class WikiDashboardView extends ItemView {
@@ -117,6 +119,9 @@ export class WikiDashboardView extends ItemView {
                 break;
             case "projects":
                 await renderProjectsTab(container, this.plugin);
+                break;
+            case "capabilities":
+                await renderCapabilitiesTab(container, this.plugin);
                 break;
         }
     }

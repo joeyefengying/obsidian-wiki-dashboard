@@ -46,22 +46,13 @@ export function getActiveProjects(vault: Vault): Array<{ name: string; path: str
     if (!dir || !(dir as any).children) return [];
 
     return ((dir as any).children as Array<any>)
-        .filter((c: any) => c.children !== undefined) // 只取子目录
+        .filter((c: any) => c.children !== undefined)
         .map((c: any) => ({ name: c.name, path: c.path } as { name: string; path: string }))
         .sort((a: any, b: any) => a.name.localeCompare(b.name));
 }
 
 /**
- * 生成项目列表（替换 LifeOS 动态语法）
- */
-function generateProjectList(vault: Vault): string {
-    const projects = getActiveProjects(vault);
-    if (projects.length === 0) return "";
-    return projects.map((p, i) => `${i + 1}. [[${p.path}/README|${p.name}]]`).join("\n");
-}
-
-/**
- * 创建日报（从模板 + 自动生成项目列表）
+ * 创建日报（从模板），保留 LifeOS 动态语法让插件自己执行
  */
 export async function ensureDailyFile(vault: Vault, path: string): Promise<TFile> {
     const existing = vault.getAbstractFileByPath(path);
@@ -73,16 +64,8 @@ export async function ensureDailyFile(vault: Vault, path: string): Promise<TFile
     let content: string;
     if (templateFile instanceof TFile) {
         content = await vault.read(templateFile);
-        // 替换 LifeOS 动态语法为实际项目列表
-        const projList = generateProjectList(vault);
-        content = content.replace(/<%[\s]*LifeOS\.Project\.snapshot\(\)[\s]*%>/, projList);
-        // 清理剩余动态语法
-        content = content.replace(/<%[\s\S]*?%>/g, "").trim();
-        content = content.replace(/\n{3,}/g, "\n\n");
     } else {
-        const projList = generateProjectList(vault);
-        const projSection = projList ? `## 项目列表\n\n${projList}\n\n` : "";
-        content = `${projSection}## 日常记录\n\n## 习惯打卡\n\n## 今日完成\n`;
+        content = `## 项目列表\n\n## 日常记录\n\n## 习惯打卡\n\n## 今日完成\n`;
     }
 
     return await vault.create(path, content);

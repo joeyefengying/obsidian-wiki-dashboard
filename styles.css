@@ -785,6 +785,38 @@
   color: var(--wd-text-faint);
 }
 
+/* ═════════════ CAPABILITIES TAB ═════════════ */
+.wd-cap-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-cap-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--wd-border-sub);
+}
+
+.wd-cap-row:last-child {
+  border-bottom: none;
+}
+
+.wd-cap-desc {
+  font-size: 0.82rem;
+  color: var(--wd-text);
+}
+
+.wd-cap-trigger {
+  font-size: 0.7rem;
+  color: var(--wd-text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ═════════════ RESPONSIVE ═════════════ */
 @media (max-width: 900px) {
   .wd-root {

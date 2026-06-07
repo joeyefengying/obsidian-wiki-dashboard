@@ -22,6 +22,31 @@ interface Project {
 export async function renderProjectsTab(container: HTMLElement, plugin: WikiDashboardPlugin) {
     const vault = plugin.app.vault;
 
+    // ── 创建项目 ──
+    const createSection = container.createDiv({ cls: "wd-section wd-task-add-section" });
+    const createRow = createSection.createDiv({ cls: "wd-task-add-row" });
+    const createInput = createRow.createEl("input", {
+        type: "text",
+        placeholder: "新项目名称…",
+        cls: "wd-digest-input wd-task-add-input",
+    });
+    const createBtn = createRow.createEl("button", { text: "创建", cls: "wd-btn wd-btn-fill" });
+    createBtn.addEventListener("click", async () => {
+        const name = createInput.value.trim();
+        if (!name) return;
+        const projPath = `${ACTIVE_DIR}/${name}`;
+        try {
+            await vault.create(`${projPath}/README.md`, `# ${name}\n\n## 目标\n\n## 任务\n\n## 记录\n`);
+            createInput.value = "";
+            showToast(container, `项目「${name}」已创建`);
+            container.empty();
+            await renderProjectsTab(container, plugin);
+        } catch (e: any) {
+            showToast(container, `创建失败：${e?.message || e}`, "err");
+        }
+    });
+    createInput.addEventListener("keydown", (e) => { if (e.key === "Enter") createBtn.click(); });
+
     // ── 活跃项目 ──
     const activeSection = container.createDiv({ cls: "wd-section" });
     activeSection.createDiv({ text: "活跃项目", cls: "wd-section-title" });
