@@ -1,0 +1,10 @@
+{
+  "id": "wiki-dashboard",
+  "name": "Wiki Dashboard",
+  "version": "1.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "个人知识库仪表盘 — 快速消化、知识统计、最近活动、快捷操作一站式面板。专为 llm-wiki 知识库深度用户设计。",
+  "author": "张浩",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
