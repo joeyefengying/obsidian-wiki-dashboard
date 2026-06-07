@@ -47,7 +47,7 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
         } else {
             // 普通模式
             projectName = raw;
-            readmeContent = `# ${projectName}\n\n## 目标\n\n## 任务\n\n## 记录\n`;
+            readmeContent = `# ${projectName}\n\n## 目标\n\n\n\n## 任务\n\n\`\`\`tasks\nnot done\ndescription includes [[${ACTIVE_DIR}/${projectName}/README|${projectName}]]\n\`\`\`\n\n## 记录\n`;
         }
 
         const projPath = `${ACTIVE_DIR}/${projectName}`;
@@ -80,7 +80,17 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
             // 项目信息
             const info = row.createDiv({ cls: "wd-project-info" });
             info.createSpan({ text: proj.name, cls: "wd-project-name" });
-            info.createSpan({ text: `${proj.fileCount} 个文件`, cls: "wd-project-meta" });
+
+            // 文件数 + 动态任务数
+            const metaEl = info.createDiv({ cls: "wd-project-meta-row" });
+            metaEl.createSpan({ text: `${proj.fileCount} 个文件`, cls: "wd-project-meta" });
+
+            // 异步加载未完成任务数
+            countProjectTasks(vault, proj.path).then(taskCount => {
+                if (taskCount > 0) {
+                    metaEl.createSpan({ text: ` · ${taskCount} 个待办`, cls: "wd-project-meta wd-project-task-count" });
+                }
+            });
 
             // 打开
             const openBtn = row.createEl("button", { text: "打开", cls: "wd-btn-sm wd-btn-ghost" });
@@ -212,6 +222,26 @@ async function moveProject(vault: import("obsidian").Vault, fromPath: string, to
     } catch { /* ignore */ }
 }
 
+async function countProjectTasks(vault: import("obsidian").Vault, projPath: string): Promise<number> {
+    // 取项目名（最后一段路径）
+    const projName = projPath.split("/").pop() || "";
+    // 扫描最近的 md 文件，搜索关联到该项目的未完成任务
+    const files = vault.getMarkdownFiles()
+        .filter(f => !f.path.startsWith(".obsidian/") && !f.path.startsWith("raw/"))
+        .slice(0, 150);
+
+    let count = 0;
+    for (const f of files) {
+        if (count >= 20) break;
+        const content = await vault.read(f);
+        // 匹配 - [ ] ... 🗂 [[...项目名...]] 或包含项目 wikilink
+        const regex = new RegExp(`- \\[ \\].*?\\[\\[${projName}\\]\\]|🗂.*?\\[\\[.*?${projName}.*?\\]\\]`, "i");
+        const matches = content.match(new RegExp(regex.source, "g"));
+        if (matches) count += matches.length;
+    }
+    return count;
+}
+
 async function generateReadmeFromDir(vault: import("obsidian").Vault, dirPath: string, name: string): Promise<string> {
     const dir = vault.getAbstractFileByPath(dirPath);
     if (!dir || !(dir as any).children) return `# ${name}\n\n## 目标\n\n## 任务\n\n## 记录\n`;
@@ -246,7 +276,9 @@ async function generateReadmeFromDir(vault: import("obsidian").Vault, dirPath: s
         readme += `\n`;
     }
 
-    readme += `## 任务\n\n\n\n## 记录\n`;
+    readme += `## 任务\n\n`;
+    readme += "```tasks\nnot done\ndescription includes [[" + dirPath + "]]\n```\n\n";
+    readme += `## 记录\n`;
     return readme;
 }
 

@@ -785,6 +785,15 @@
   color: var(--wd-text-faint);
 }
 
+.wd-project-meta-row {
+  display: flex;
+  gap: 4px;
+}
+
+.wd-project-task-count {
+  color: var(--wd-accent);
+}
+
 /* ═════════════ CAPABILITIES TAB ═════════════ */
 .wd-cap-list {
   display: flex;
