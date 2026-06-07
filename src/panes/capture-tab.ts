@@ -3,35 +3,33 @@ import { TFile } from "obsidian";
 import { getDailyPath, ensureDailyFile, appendToDailySection } from "../utils/vault-utils";
 
 /**
- * 速记 Tab — 快速捕获想法，追加到日报「日常记录」区域
+ * 速记 Tab — 快速捕获想法，像真实编辑器一样点击按钮即插入模板
  */
 export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashboardPlugin) {
     const vault = plugin.app.vault;
     const now = new Date();
     const dailyPath = getDailyPath(now);
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-    // ── 快捷前缀 ──
+    // ── 快捷模板按钮 ──
     const quickHint = container.createDiv({ cls: "wd-capture-quick-hint" });
-    quickHint.createSpan({ text: "选择记录类型，切换后输入内容自动添加对应格式：" });
+    quickHint.createSpan({ text: "点击按钮在输入框中插入格式模板：" });
 
     const quickRow = container.createDiv({ cls: "wd-capture-quick" });
     const quickItems = [
-        { label: "💡 想法", prefix: "", hint: "纯文本记录，无额外格式" },
-        { label: "✅ 待办", prefix: "- [ ] ", hint: "自动添加任务复选框 - [ ]" },
-        { label: "📌 重点", prefix: "> [!important]\n> ", hint: "用 callout 高亮块标记重要内容" },
-        { label: "🔗 链接", prefix: "- [ ] 阅读：", hint: "生成待阅链接任务" },
+        { label: "💡 想法", template: "", hint: "光标定位到输入框" },
+        { label: "✅ 待办", template: "- [ ] ", hint: "插入任务复选框" },
+        { label: "📌 重点", template: "> [!important]\n> ", hint: "插入高亮 callout" },
+        { label: "🔗 链接", template: "- [ ] 阅读：", hint: "插入待阅链接任务" },
     ];
 
-    let activePrefix = "";
     let inputEl: HTMLTextAreaElement;
 
     for (const qi of quickItems) {
-        const btn = quickRow.createEl("button", { text: qi.label, cls: "wd-btn-sm wd-btn-cmd" });
+        const btn = quickRow.createEl("button", { text: qi.label, cls: "wd-btn-sm wd-btn-ghost" });
         btn.addEventListener("click", () => {
-            activePrefix = qi.prefix;
-            quickRow.querySelectorAll(".wd-btn-sm").forEach(b => b.classList.remove("is-active"));
-            btn.classList.add("is-active");
+            if (qi.template) {
+                insertAtCursor(inputEl, qi.template);
+            }
             inputEl.focus();
             showToast(container, `${qi.label}：${qi.hint}`);
         });
@@ -43,9 +41,9 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
     const inputBody = inputSection.createDiv({ cls: "wd-section-body" });
 
     inputEl = inputBody.createEl("textarea", {
-        placeholder: "写下任何想法，Ctrl+Enter 保存到日报「日常记录」…",
+        placeholder: "在这里写内容，或点击上方按钮插入格式模板。Ctrl+Enter 保存到日报。",
         cls: "wd-capture-input",
-        attr: { rows: "8" },
+        attr: { rows: "10" },
     });
 
     const optionsRow = inputBody.createDiv({ cls: "wd-capture-options" });
@@ -60,12 +58,13 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
         let content = inputEl.value.trim();
         if (!content) return;
 
-        if (activePrefix) content = activePrefix + content;
+        // 追加标签
         const tags = tagInput.value.trim();
         if (tags) {
             const tagStr = tags.split(/[,，]/).map(t => t.trim()).filter(Boolean).map(t => `#${t}`).join(" ");
             content += ` ${tagStr}`;
         }
+        // 加时间戳
         content = `\n> ${now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}\n${content}`;
 
         const file = await ensureDailyFile(vault, dailyPath);
@@ -73,8 +72,6 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
 
         inputEl.value = "";
         tagInput.value = "";
-        activePrefix = "";
-        quickRow.querySelectorAll(".wd-btn-sm").forEach(b => b.classList.remove("is-active"));
         showSaveToast(container);
     };
 
@@ -86,7 +83,7 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
         }
     });
 
-    // ── 今日日报预览 ──
+    // ── 日报预览 ──
     const historySection = container.createDiv({ cls: "wd-section" });
     historySection.createDiv({ text: "日报预览", cls: "wd-section-title" });
     const historyBody = historySection.createDiv({ cls: "wd-section-body" });
@@ -120,6 +117,19 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
     } else {
         historyBody.createDiv({ text: "今日日报尚未创建（添加记录时自动创建）", cls: "wd-empty" });
     }
+}
+
+// ── 工具 ──
+
+function insertAtCursor(textarea: HTMLTextAreaElement, text: string) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = textarea.value.substring(0, start);
+    const after = textarea.value.substring(end);
+    textarea.value = before + text + after;
+    // 光标移到插入内容末尾
+    const newPos = start + text.length;
+    textarea.selectionStart = textarea.selectionEnd = newPos;
 }
 
 function showSaveToast(container: HTMLElement) {
