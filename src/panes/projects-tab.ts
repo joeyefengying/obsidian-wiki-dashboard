@@ -27,18 +27,34 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
     const createRow = createSection.createDiv({ cls: "wd-task-add-row" });
     const createInput = createRow.createEl("input", {
         type: "text",
-        placeholder: "新项目名称…",
+        placeholder: "项目名 或 vault内路径（导入文件夹）…",
         cls: "wd-digest-input wd-task-add-input",
     });
     const createBtn = createRow.createEl("button", { text: "创建", cls: "wd-btn wd-btn-fill" });
     createBtn.addEventListener("click", async () => {
-        const name = createInput.value.trim();
-        if (!name) return;
-        const projPath = `${ACTIVE_DIR}/${name}`;
+        const raw = createInput.value.trim();
+        if (!raw) return;
+
+        // 检查是否是 vault 内已有目录 → 导入模式
+        const sourceDir = vault.getAbstractFileByPath(raw);
+        let projectName: string;
+        let readmeContent: string;
+
+        if (sourceDir && (sourceDir as any).children) {
+            // 导入模式：分析文件夹
+            projectName = (sourceDir as any).name || raw.split("/").pop()!;
+            readmeContent = await generateReadmeFromDir(vault, raw, projectName);
+        } else {
+            // 普通模式
+            projectName = raw;
+            readmeContent = `# ${projectName}\n\n## 目标\n\n## 任务\n\n## 记录\n`;
+        }
+
+        const projPath = `${ACTIVE_DIR}/${projectName}`;
         try {
-            await vault.create(`${projPath}/README.md`, `# ${name}\n\n## 目标\n\n## 任务\n\n## 记录\n`);
+            await vault.create(`${projPath}/README.md`, readmeContent);
             createInput.value = "";
-            showToast(container, `项目「${name}」已创建`);
+            showToast(container, `项目「${projectName}」已创建`);
             container.empty();
             await renderProjectsTab(container, plugin);
         } catch (e: any) {
@@ -194,6 +210,44 @@ async function moveProject(vault: import("obsidian").Vault, fromPath: string, to
     try {
         await adapter.rmdir(fromPath);
     } catch { /* ignore */ }
+}
+
+async function generateReadmeFromDir(vault: import("obsidian").Vault, dirPath: string, name: string): Promise<string> {
+    const dir = vault.getAbstractFileByPath(dirPath);
+    if (!dir || !(dir as any).children) return `# ${name}\n\n## 目标\n\n## 任务\n\n## 记录\n`;
+
+    const children = (dir as any).children as Array<any>;
+    const subDirs = children.filter((c: any) => c.children !== undefined);
+    const rootFiles = children.filter((c: any) => c.children === undefined && c.name.endsWith(".md"));
+
+    // 递归统计所有文件
+    const allFiles = vault.getFiles().filter(f => f.path.startsWith(dirPath + "/"));
+    const fileCount = allFiles.length;
+
+    let readme = `# ${name}\n\n`;
+    readme += `> 来源：\`${dirPath}/\`（${fileCount} 文件 / ${subDirs.length} 子目录）\n\n`;
+    readme += `## 目标\n\n\n\n`;
+
+    if (subDirs.length > 0) {
+        readme += `## 子模块\n\n`;
+        for (const d of subDirs.slice(0, 12)) {
+            const subFiles = allFiles.filter(f => f.path.startsWith(d.path + "/"));
+            readme += `- **${d.name}** — ${subFiles.length} 文件\n`;
+        }
+        readme += `\n`;
+    }
+
+    if (rootFiles.length > 0) {
+        readme += `## 关键文档\n\n`;
+        for (const f of rootFiles.slice(0, 10)) {
+            const linkName = f.name.replace(/\.md$/, "");
+            readme += `- [[${f.path}|${linkName}]]\n`;
+        }
+        readme += `\n`;
+    }
+
+    readme += `## 任务\n\n\n\n## 记录\n`;
+    return readme;
 }
 
 async function appendToProjectSection(vault: import("obsidian").Vault, file: TFile, sectionName: string, content: string) {
