@@ -47,7 +47,7 @@ export async function renderProjectsTab(container: HTMLElement, plugin: WikiDash
         } else {
             // 普通模式
             projectName = raw;
-            readmeContent = `# ${projectName}\n\n## 目标\n\n\n\n## 任务\n\n\`\`\`tasks\nnot done\ndescription includes [[${ACTIVE_DIR}/${projectName}/README|${projectName}]]\n\`\`\`\n\n## 记录\n`;
+            readmeContent = `# ${projectName}\n\n## 目标\n\n\n\n## 任务\n\n\`\`\`tasks\nnot done\ndescription includes ${projectName}\n\`\`\`\n\n## 记录\n`;
         }
 
         const projPath = `${ACTIVE_DIR}/${projectName}`;
@@ -277,7 +277,7 @@ async function generateReadmeFromDir(vault: import("obsidian").Vault, dirPath: s
     }
 
     readme += `## 任务\n\n`;
-    readme += "```tasks\nnot done\ndescription includes [[" + dirPath + "]]\n```\n\n";
+    readme += "```tasks\nnot done\ndescription includes " + name + "\n```\n\n";
     readme += `## 记录\n`;
     return readme;
 }
