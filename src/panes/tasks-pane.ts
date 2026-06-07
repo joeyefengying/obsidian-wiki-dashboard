@@ -9,7 +9,12 @@ export async function renderTasksPane(container: HTMLElement, plugin: WikiDashbo
     container.empty();
 
     const section = container.createDiv({ cls: "wd-section" });
-    section.createDiv({ text: "日报待办", cls: "wd-section-title" });
+    const titleRow = section.createDiv({ cls: "wd-section-header" });
+    titleRow.createSpan({ text: "日报待办", cls: "wd-section-title" });
+    const openBtn = titleRow.createEl("button", { text: "↗", cls: "wd-btn-sm", attr: { title: "打开日报源文件" } });
+    openBtn.addEventListener("click", () => {
+        plugin.app.workspace.openLinkText(dailyPath, "", false);
+    });
     const body = section.createDiv({ cls: "wd-section-body" });
 
     const dailyPath = getDailyPath();

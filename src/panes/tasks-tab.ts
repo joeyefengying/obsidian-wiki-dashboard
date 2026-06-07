@@ -18,6 +18,10 @@ export async function renderTasksTab(container: HTMLElement, plugin: WikiDashboa
     const dhRow = dailyHeader.createDiv({ cls: "wd-task-header-row" });
     dhRow.createDiv({ text: "📋 日报", cls: "wd-section-title" });
     dhRow.createSpan({ text: todayStr, cls: "wd-date" });
+    const openDailyBtn = dhRow.createEl("button", { text: "打开源文件 ↗", cls: "wd-btn-sm wd-btn-cmd" });
+    openDailyBtn.addEventListener("click", () => {
+        plugin.app.workspace.openLinkText(dailyPath, "", false);
+    });
 
     // ── 快速添加 ──
     const addRow = dailyHeader.createDiv({ cls: "wd-task-add-row" });
