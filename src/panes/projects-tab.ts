@@ -115,6 +115,14 @@ async function listProjects(vault: import("obsidian").Vault, dirPath: string, is
 }
 
 async function moveProject(vault: import("obsidian").Vault, fromPath: string, toPath: string) {
+    // 先确保目标目录存在（创建占位文件触发目录创建，再删掉）
+    const placeholder = toPath + "/.tmp";
+    try {
+        await vault.create(placeholder, "");
+        const pf = vault.getAbstractFileByPath(placeholder);
+        if (pf) await vault.delete(pf);
+    } catch { /* 目录可能已存在 */ }
+
     // 获取该目录下所有文件
     const files = vault.getFiles().filter(f => f.path.startsWith(fromPath + "/"));
 
@@ -122,11 +130,14 @@ async function moveProject(vault: import("obsidian").Vault, fromPath: string, to
     for (const file of files) {
         const relative = file.path.substring(fromPath.length);
         const newPath = toPath + relative;
-        // 确保目标目录存在 — 通过创建第一个文件时 Obsidian 会自动创建父目录
         await vault.rename(file, newPath);
     }
 
-    // 源目录在文件全部移走后会自动消失
+    // 清理可能残留的空目录标记
+    try {
+        const tmp = vault.getAbstractFileByPath(fromPath + "/.tmp");
+        if (tmp) await vault.delete(tmp);
+    } catch { /* ignore */ }
 }
 
 function showToast(container: HTMLElement, msg: string, kind: "ok" | "err" = "ok") {
