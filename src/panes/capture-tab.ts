@@ -12,12 +12,15 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     // ── 快捷前缀 ──
+    const quickHint = container.createDiv({ cls: "wd-capture-quick-hint" });
+    quickHint.createSpan({ text: "选择记录类型，切换后输入内容自动添加对应格式：" });
+
     const quickRow = container.createDiv({ cls: "wd-capture-quick" });
     const quickItems = [
-        { label: "💡 想法", prefix: "" },
-        { label: "✅ 待办", prefix: "- [ ] " },
-        { label: "📌 重点", prefix: "> [!important]\n> " },
-        { label: "🔗 链接", prefix: "- [ ] 阅读：" },
+        { label: "💡 想法", prefix: "", hint: "纯文本记录，无额外格式" },
+        { label: "✅ 待办", prefix: "- [ ] ", hint: "自动添加任务复选框 - [ ]" },
+        { label: "📌 重点", prefix: "> [!important]\n> ", hint: "用 callout 高亮块标记重要内容" },
+        { label: "🔗 链接", prefix: "- [ ] 阅读：", hint: "生成待阅链接任务" },
     ];
 
     let activePrefix = "";
@@ -30,6 +33,7 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
             quickRow.querySelectorAll(".wd-btn-sm").forEach(b => b.classList.remove("is-active"));
             btn.classList.add("is-active");
             inputEl.focus();
+            showToast(container, `${qi.label}：${qi.hint}`);
         });
     }
 
@@ -119,9 +123,13 @@ export async function renderCaptureTab(container: HTMLElement, plugin: WikiDashb
 }
 
 function showSaveToast(container: HTMLElement) {
+    showToast(container, "已保存到日报");
+}
+
+function showToast(container: HTMLElement, msg: string) {
     const existing = container.querySelector(".wd-toast");
     if (existing) existing.remove();
     const t = container.createDiv({ cls: "wd-toast wd-toast-ok" });
-    t.setText("已保存到日报");
+    t.setText(msg);
     setTimeout(() => { t.classList.add("wd-toast-out"); setTimeout(() => t.remove(), 300); }, 1800);
 }

@@ -621,6 +621,12 @@
 }
 
 /* ═════════════ CAPTURE TAB ═════════════ */
+.wd-capture-quick-hint {
+  font-size: 0.72rem;
+  color: var(--wd-text-faint);
+  margin-bottom: 8px;
+}
+
 .wd-capture-quick {
   display: flex;
   flex-wrap: wrap;
