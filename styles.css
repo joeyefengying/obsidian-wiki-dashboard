@@ -789,6 +789,7 @@
 .wd-cap-list {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .wd-cap-row {
@@ -796,17 +797,19 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--wd-border-sub);
+  padding: 10px 12px;
+  border-radius: 4px;
+  transition: background 0.12s;
 }
 
-.wd-cap-row:last-child {
-  border-bottom: none;
+.wd-cap-row:hover {
+  background: var(--wd-border-sub);
 }
 
 .wd-cap-desc {
   font-size: 0.82rem;
   color: var(--wd-text);
+  line-height: 1.45;
 }
 
 .wd-cap-trigger {
@@ -815,6 +818,15 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   flex-shrink: 0;
+  background: var(--wd-border-sub);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+}
+
+/* 分类之间加间距 */
+.wd-section + .wd-section {
+  margin-top: 4px;
 }
 
 /* ═════════════ RESPONSIVE ═════════════ */
